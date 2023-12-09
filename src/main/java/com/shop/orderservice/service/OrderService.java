@@ -1,11 +1,14 @@
 package com.shop.orderservice.service;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
+import com.shop.orderservice.dto.InventoryResponse;
 import com.shop.orderservice.dto.OrderLineItemDto;
 import com.shop.orderservice.dto.OrderRequest;
 import com.shop.orderservice.model.Order;
@@ -20,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final WebClient webClient;
 
     public void placeOrder(OrderRequest orderRequest) {
         Order order = new Order();
@@ -28,6 +32,26 @@ public class OrderService {
         List<OrderLineItem> orderLineItems = orderRequest.getOrderLineItemsDto().stream().map(this::mapToDto).toList();
 
         order.setOrderLineItems(orderLineItems);
+
+        List<String> allSkuCodes = order.getOrderLineItems()
+                .stream()
+                .map(OrderLineItem::getSkuCode)
+                .toList();
+
+        InventoryResponse[] inventoryResponse = webClient
+                .get()
+                .uri("http://localhost:8082/api/inventory",
+                        uriBuilder -> uriBuilder.queryParam("skuCode", allSkuCodes).build())
+                .retrieve()
+                .bodyToMono(InventoryResponse[].class)
+                .block();
+
+        boolean allInStock = Arrays.stream(inventoryResponse).allMatch(InventoryResponse::getIsInStock);
+        System.out.println("allInStock = " + allInStock);
+
+        if (!allInStock) {
+            throw new IllegalArgumentException("Out of stock");
+        }
 
         orderRepository.save(order);
 
