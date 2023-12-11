@@ -48,7 +48,6 @@ public class OrderService {
                 .block();
 
         boolean allInStock = Arrays.stream(inventoryResponse).allMatch(InventoryResponse::getIsInStock);
-        System.out.println("allInStock = " + allInStock);
 
         if (!allInStock) {
             throw new IllegalArgumentException("Out of stock");
@@ -56,7 +55,6 @@ public class OrderService {
 
         orderRepository.save(order);
         return "Order Placed Successfully";
-
     }
 
     private OrderLineItem mapToDto(OrderLineItemDto orderLineItemDto) {
